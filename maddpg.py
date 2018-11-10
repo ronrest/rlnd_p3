@@ -70,6 +70,21 @@ class MADDPG(object):
         return target_actions
 
     def update(self, samples, agent_number):
+        """
+        update the critics and actors of all the agents
+
+        Args:
+            samples: Tuple of tensors with the following:
+                - agents_states: TODO: XXX shape of tensors[]
+                - global_state:
+                - actions:
+                - rewards:
+                - next_agents_states:
+                - next_global_state:
+                - dones:
+            agent_number: is this an integer? for the agent idx?
+
+        """
         agents_states, global_state, actions, rewards, next_agents_states, next_global_state, dones = samples
         agent = self.agents[agent_number]
 

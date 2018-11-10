@@ -27,7 +27,7 @@ class OUNoise:
 
 
 class DDPGAgent:
-    def __init__(self, actor_layer_sizes=[24, 128,128,2], critic_layer_sizes=[24, 128,128,1], lr_actor=1.0e-2, lr_critic=1.0e-2, logger=None):
+    def __init__(self, actor_layer_sizes=[24, 128,128,2], critic_layer_sizes=[24, 128,128,1], lr_actor=1.0e-2, lr_critic=1.0e-2, clamp_actions=True, logger=None):
         super(DDPGAgent, self).__init__()
 
         self.actor = Network(layer_sizes=actor_layer_sizes, actor=True, logger=logger).to(device)
@@ -36,6 +36,7 @@ class DDPGAgent:
         self.target_critic = Network(layer_sizes=critic_layer_sizes, logger=logger).to(device)
 
         self.noise = OUNoise(actor_layer_sizes[-1], scale=1.0 )
+        self.clamp_actions = clamp_actions
 
         # initialize targets same as original networks
         hard_update(self.target_actor, self.actor)
@@ -49,12 +50,14 @@ class DDPGAgent:
         obs = torch.tensor(obs, dtype=torch.float)
         obs = obs.to(device)
         action = self.actor(obs) + noise*self.noise.noise()
-        action = torch.clamp(action, -1.0, 1.0)
+        if self.clamp_actions:
+            action = torch.clamp(action, -1.0, 1.0)
         return action
 
     def target_act(self, obs, noise=0.0):
         obs = torch.tensor(obs, dtype=torch.float)
         obs = obs.to(device)
         action = self.target_actor(obs) + noise*self.noise.noise()
-        action = torch.clamp(action, -1.0, 1.0)
+        if self.clamp_actions:
+            action = torch.clamp(action, -1.0, 1.0)
         return action

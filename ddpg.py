@@ -49,10 +49,12 @@ class DDPGAgent:
         obs = torch.tensor(obs, dtype=torch.float)
         obs = obs.to(device)
         action = self.actor(obs) + noise*self.noise.noise()
+        action = torch.clamp(action, -1.0, 1.0)
         return action
 
     def target_act(self, obs, noise=0.0):
         obs = torch.tensor(obs, dtype=torch.float)
         obs = obs.to(device)
         action = self.target_actor(obs) + noise*self.noise.noise()
+        action = torch.clamp(action, -1.0, 1.0)
         return action

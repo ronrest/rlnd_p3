@@ -9,7 +9,6 @@ def hidden_init(layer):
     return (-lim, lim)
 
 class Network(nn.Module):
-    def __init__(self, layer_sizes=[24, 128, 128, 2], actor=False):
     def __init__(self, layer_sizes=[24, 128, 128, 2], actor=False, logger=None):
         super(Network, self).__init__()
         self.fc1 = nn.Linear(layer_sizes[0],layer_sizes[1])

@@ -10,6 +10,7 @@ def hidden_init(layer):
 
 class Network(nn.Module):
     def __init__(self, layer_sizes=[24, 128, 128, 2], actor=False):
+    def __init__(self, layer_sizes=[24, 128, 128, 2], actor=False, logger=None):
         super(Network, self).__init__()
         self.fc1 = nn.Linear(layer_sizes[0],layer_sizes[1])
         self.fc2 = nn.Linear(layer_sizes[1],layer_sizes[2])
@@ -37,5 +38,11 @@ class Network(nn.Module):
         else:
             logits = self.fc3(h2)
 
+        # MONITOR LAYER VALUES IN TENSORBOARD
+        if self.logger is not None:
+            network_name = "actor" if self.actor else "critic"
+            self.step += 1
+            for key, vals in dict(x=x, h1=h1, h2=h2, logits=logits).items():
+                self.logger.add_histogram("{}_layers/{}".format(network_name, key), vals.clone().cpu().data.numpy(), self.step)
 
         return logits

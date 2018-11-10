@@ -30,18 +30,21 @@ class DDPGAgent:
     def __init__(self, actor_layer_sizes=[24, 128,128,2], critic_layer_sizes=[24, 128,128,1], lr_actor=1.0e-2, lr_critic=1.0e-2, clamp_actions=True, logger=None):
         super(DDPGAgent, self).__init__()
 
+        # SET UP ACTOR AND CRITIC NETWORKS
         self.actor = Network(layer_sizes=actor_layer_sizes, actor=True, logger=logger).to(device)
         self.critic = Network(layer_sizes=critic_layer_sizes, logger=logger).to(device)
         self.target_actor = Network(layer_sizes=actor_layer_sizes, actor=True, logger=logger).to(device)
         self.target_critic = Network(layer_sizes=critic_layer_sizes, logger=logger).to(device)
 
+        # NOISE - for exploration of actions
         self.noise = OUNoise(actor_layer_sizes[-1], scale=1.0 )
         self.clamp_actions = clamp_actions
 
-        # initialize targets same as original networks
+        # INITIALIZE TARGET NETWORKS TO HAVE SAME WEIGHTS AS LOCAL NETWORKS
         hard_update(self.target_actor, self.actor)
         hard_update(self.target_critic, self.critic)
 
+        # OPTIMIZERS
         self.actor_optimizer = Adam(self.actor.parameters(), lr=lr_actor)
         self.critic_optimizer = Adam(self.critic.parameters(), lr=lr_critic, weight_decay=0.0)
 

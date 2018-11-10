@@ -40,6 +40,17 @@ class MADDPG(object):
         return target_actors
 
     def act(self, agents_states, noise=0.0):
+        """ Given an array-like object of Tensors, where each tensor represents
+            the state of each agent, it passes each of those states to the
+            corresponding agent's LOCAL actor network, to get the actions for
+            each agent.
+        Args:
+            agents_states:  array-like object of Tensors
+                            [n_agents, state_size]
+            noise:          Random noise scaling factor
+        Return:
+            actions:        Tensor of shape [n_agents, n_actions]
+        """
         actions = [agent.act(state, noise) for agent, state in zip(self.agents, agents_states)]
         return actions
 

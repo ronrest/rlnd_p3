@@ -64,6 +64,12 @@ class DDPGAgent:
         return action
 
     def target_act(self, obs, noise=0.0):
+        """ Given a tensor representing the states, it returns the predicted
+            actions the agent should take using the LOCAL network.
+
+            If `noise` is provided, it adds some random noise to the actions
+            to make the agent explore.
+        """
         obs = torch.tensor(obs, dtype=torch.float)
         obs = obs.to(device)
         action = self.target_actor(obs) + noise*self.noise.noise()

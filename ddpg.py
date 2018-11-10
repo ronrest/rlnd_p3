@@ -4,7 +4,8 @@ from network import Network
 from support import hard_update
 from torch.optim import Adam
 
-device = 'cpu'
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 class OUNoise:
     def __init__(self, action_dimension, scale=0.1, mu=0, theta=0.15, sigma=0.2):
         self.action_dimension = action_dimension

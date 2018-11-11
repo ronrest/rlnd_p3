@@ -97,3 +97,17 @@ agent_state_size = process_agent_states(states).shape[1]
 global_state_size = process_gobal_state(states).shape[0]
 
 
+# ##############################################################################
+#                                                  AGENT
+# ##############################################################################
+# initialize policy and critic
+maddpg = MADDPG(
+            actor_layer_sizes=[agent_state_size, 128,128,2],
+            critic_layer_sizes=[global_state_size + (N_ACTIONS*N_AGENTS), 128,128,1],
+            lr_actor=1e-3,
+            lr_critic=1e-3,
+            discount_factor=0.95,
+            logger=logger,
+            )
+
+

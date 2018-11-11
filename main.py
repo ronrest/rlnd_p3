@@ -61,3 +61,39 @@ def process_gobal_state(states):
     c = np.concatenate([a,b])
     return c
 
+# ##############################################################################
+#                                                  ENVIRONMENT
+# ##############################################################################
+env = UnityEnvironment(file_name="../Tennis_Linux/Tennis.x86_64")
+# env = UnityEnvironment(file_name="../Tennis_Linux_NoVis/Tennis.x86_64")
+
+# get the default brain
+brain_name = env.brain_names[0]
+brain = env.brains[brain_name]
+
+
+# reset the environment
+env_info = env.reset(train_mode=True)[brain_name]
+
+# number of agents
+num_agents = len(env_info.agents)
+action_size = brain.vector_action_space_size
+action_type = brain.vector_action_space_type
+
+states = env_info.vector_observations
+#state_size = brain.vector_observation_space_size # gives wrong value for this environment
+state_size = states.shape[1]
+state_type = brain.vector_observation_space_type
+
+print('Number of agents               :', num_agents)
+print('Action Shape                   :', action_size)
+print("Action Type                    :", action_type)
+print("State Shape (all agents)       :", states.shape)
+print("State Shape (individual agent) :", state_size)
+print("State Type                     :", state_type)
+print('\nExample state for a single agent:\n', states[0])
+
+agent_state_size = process_agent_states(states).shape[1]
+global_state_size = process_gobal_state(states).shape[0]
+
+

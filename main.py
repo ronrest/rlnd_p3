@@ -7,6 +7,9 @@ from unityagents import UnityEnvironment
 from buffer import ReplayBuffer
 from maddpg import MADDPG
 
+import matplotlib.pyplot as plt
+# %matplotlib inline
+
 from support import linear_scale_array, scale_agent_state, tensorfy, tensorfy_experience_samples, random_swap_agent_experiences
 
 
@@ -248,3 +251,21 @@ for episode_i in range(1, n_episodes+1):
         print("...but continuing to train")
 
 
+
+
+# ##############################################################################
+# PLOT LEARNING CURVE
+# ##############################################################################
+fig, ax = plt.subplots(figsize=(12, 6))
+fig.suptitle("Learning Curve", fontsize=15)
+ax.plot(history, color="#307EC7", label="Episode Reward")
+ax.plot(history, color="#E65C00", label="Rolling Mean of past {} Rewards".format(SOLVED_WINDOW))
+ax.set_xlabel("Timesteps")
+ax.set_ylabel("Reward")
+# GRID
+ax.grid(True)
+ax.grid(b=True, which='major', color='#999999', linestyle='-', linewidth=1)
+ax.minorticks_on()
+ax.grid(b=True, which='minor', color='#999999', linestyle='-', alpha=0.7, linewidth=0.5)
+fig.savefig("learning_curves.jpg")
+fig.close()

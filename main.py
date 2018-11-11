@@ -39,3 +39,13 @@ seed = 1
 logger = SummaryWriter(log_dir=log_path)
 seeding(seed)
 
+# ##############################################################################
+#                                                  SUPPORT
+# ##############################################################################
+def process_agent_states(states):
+    """ Given an array of shape [n_agents, state_size], it
+        Only keeps a subset of the state information for each agent """
+    # states = scale_agent_state(states)
+    return states
+
+

@@ -118,3 +118,94 @@ critic_input_dummy = torch.autograd.Variable(torch.rand(1, global_state_size + (
 logger.add_graph(maddpg.agents[0].critic, (critic_input_dummy, ), verbose=False)
 
 
+# ##############################################################################
+#                                                  TRAIN LOOP
+# ##############################################################################
+buffer = ReplayBuffer(BUFFER_SIZE)
+
+n_episodes = 5000
+solved_printout = False
+best_rolling_mean_reward = -np.inf
+history = []            # history of actual reward at each episode
+history_rolling = []    # history of rolling mean rewards over time
+
+for episode_i in range(1, n_episodes+1):
+    rewards_this_episode = np.zeros(N_AGENTS, dtype=np.float)
+
+    # RESET ENVIRONMENT
+    env_info = env.reset(train_mode=True)[brain_name] # reset the environment
+    states = env_info.vector_observations         # get next state (for each agent)
+    agents_states = process_agent_states(states)
+    global_state = process_gobal_state(states)
+    scores = np.zeros(2)
+
+    # COLLECT A FULL EPISODE OF EXPERIENCES
+    for step in range(MAX_STEPS):
+        # RESET OUNOISE
+        # maddpg.reset_noise()
+        for i in range(N_AGENTS):
+            maddpg.agents[i].noise.reset()
+        # PERFORM SINGLE STEP
+
+        # GET ACTIONS TO TAKE FROM AGENT
+        # Given agent states, get the actions for each agent from the actor policy
+        # (and some random noise for exploration)
+        # - then convert list of action tensors to a 2D numpy array
+        #   [n_agents, n_actions]
+        actions = maddpg.act(tensorfy(agents_states), noise=noise)
+        actions = torch.stack(actions).detach().numpy()
+
+        # INTERACT WITH THE ENVIRONMENT
+        env_info = env.step(actions)[brain_name]           # send all actions to tne environment
+        next_states = env_info.vector_observations         # get next state (for each agent)
+        rewards = env_info.rewards                         # get reward (for each agent)
+        dones = env_info.local_done                        # see if episode finished
+        scores += env_info.rewards                         # update the score (for each agent)
+        if np.any(dones):                                  # exit loop if episode finished
+           break
+           print('Total score (averaged over agents) this episode: {}'.format(np.mean(scores)))
+
+        # PROCESS STATES
+        next_agents_states = process_agent_states(next_states)
+        next_global_state = process_gobal_state(next_states)
+
+        # ADD EXPERIENCE TO REPLAY BUFFER
+        experience = (agents_states, global_state, actions, rewards, next_agents_states, next_global_state, dones)
+        buffer.push(experience)
+
+        # UPDATE REWARDS
+        rewards_this_episode += rewards
+
+        # PREPARE FOR NEXT STEP
+        # - update state and decay the noise
+        #states = next_states           # roll over states to next time step
+        agents_states = next_agents_states
+        global_state = next_global_state
+        noise *= noise_decay
+
+    # UPDATE NETWORK - once after every EPISODES_PER_UPDATE
+    if (len(buffer) > BATCH_SIZE) and ((episode_i % EPISODES_PER_UPDATE) == 0):
+        for _ in range(5):
+            for agent_i in range(N_AGENTS):
+                samples = buffer.sample(BATCH_SIZE)
+                samples = tensorfy_experience_samples(samples)
+                samples = random_swap_agent_experiences(samples)
+                maddpg.update(samples, agent_i)
+        maddpg.update_targets() #soft update the target network towards the actual networks
+
+    # UPDATE REWARDS
+    agg_reward_this_episode = rewards_this_episode.max()
+    # agg_reward_this_episode = rewards_this_episode.mean()
+    rolling_mean_reward = np.mean(history[-SOLVED_WINDOW:])
+    history.append(agg_reward_this_episode)
+    history_rolling.append(rolling_mean_reward)
+
+    # FEEDBACK
+    acc = str([list(actions[0]), list(actions[1])] )
+    agent_rewards_string = ["{: 3.3f}".format(r) for r in rewards_this_episode]
+    agent_rewards_string = ",".join(agent_rewards_string)
+    feedback = "\r{ep} Rolling Mean Reward: {rm: 3.3f}  Avg Reward This episode: {re: 3.3f}  Individual rewards [{ar}] acc: {acc}".format(ep=episode_i, rm=rolling_mean_reward, re=agg_reward_this_episode, ar=agent_rewards_string, acc=acc)
+    print(feedback, end="")
+
+
+

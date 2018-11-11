@@ -166,3 +166,10 @@ class MADDPG(object):
             save_dict_list.append(save_dict)
         torch.save(save_dict_list, filename)
 
+    def load_model(self, filename):
+        params = torch.load(filename)
+        for i in range(self.n_agents):
+            self.agents[i].actor.load_state_dict(params[i]['actor_params'])
+            self.agents[i].actor_optimizer.load_state_dict(params[i]['actor_optim_params'])
+            self.agents[i].critic.load_state_dict(params[i]['critic_params'])
+            self.agents[i].critic_optimizer.load_state_dict(params[i]['critic_optim_params'])

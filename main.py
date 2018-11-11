@@ -236,3 +236,15 @@ for episode_i in range(1, n_episodes+1):
         logger.add_histogram("actor_weights/{}".format(name), param.clone().cpu().data.numpy(), episode_i)
 
 
+    # SAVE MODEL
+    if rolling_mean_reward > best_rolling_mean_reward:
+        best_rolling_mean_reward = rolling_mean_reward
+        save_model(os.path.join(model_dir, "best_model.params"))
+
+    if (rolling_mean_reward >= SOLVED_SCORE) and (not solved_printout):
+        solved_printout = True
+        print('\nEnvironment solved in {} episodes!'.format(episode_i-SOLVED_WINDOW))
+        print('\nAverage Score: {:.2f}'.format(rolling_mean_reward))
+        print("...but continuing to train")
+
+

@@ -5,6 +5,23 @@ def tensorfy(x):
     """ Converts an array-like object to a pytorch float tensor """
     return torch.Tensor(x).float()
 
+def tensorfy_experience_samples(samples):
+    """ Convert experience samples to tensors and reshape from:
+            [n_samples, n_agents, vector_size]
+        to
+            [n_agents, n_samples, vector_size]
+    """
+    agents_states, global_state, actions, rewards, next_agents_states, next_global_state, dones = zip(*samples)
+    agents_states = torch.tensor(agents_states, dtype=torch.float).transpose(0,1)
+    global_state = torch.tensor(global_state, dtype=torch.float)
+    actions = torch.tensor(actions, dtype=torch.float).transpose(0,1)
+    rewards = torch.tensor(rewards, dtype=torch.float).transpose(0,1).unsqueeze(2)
+    next_agents_states = torch.tensor(next_agents_states, dtype=torch.float).transpose(0,1)
+    next_global_state = torch.tensor(next_global_state, dtype=torch.float)
+    dones = torch.tensor(dones, dtype=torch.float).transpose(0,1).unsqueeze(2)
+    return agents_states, global_state, actions, rewards, next_agents_states, next_global_state, dones
+
+
 def random_swap(x):
     """ Randomly swaps the first two rows of data in an array-like object
     """

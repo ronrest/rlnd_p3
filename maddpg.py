@@ -154,3 +154,15 @@ class MADDPG(object):
         for agent in self.agents:
             agent.noise.reset()
 
+    def save_model(self, filename):
+        save_dict_list =[]
+        for i in range(self.n_agents):
+            save_dict = {
+                'actor_params' : self.agents[i].actor.state_dict(),
+                'actor_optim_params': self.agents[i].actor_optimizer.state_dict(),
+                'critic_params' : self.agents[i].critic.state_dict(),
+                'critic_optim_params' : self.agents[i].critic_optimizer.state_dict()
+                }
+            save_dict_list.append(save_dict)
+        torch.save(save_dict_list, filename)
+

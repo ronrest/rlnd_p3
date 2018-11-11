@@ -207,5 +207,30 @@ for episode_i in range(1, n_episodes+1):
     feedback = "\r{ep} Rolling Mean Reward: {rm: 3.3f}  Avg Reward This episode: {re: 3.3f}  Individual rewards [{ar}] acc: {acc}".format(ep=episode_i, rm=rolling_mean_reward, re=agg_reward_this_episode, ar=agent_rewards_string, acc=acc)
     print(feedback, end="")
 
+    # LIVE PLOTS
+    logger.add_scalars('rewards/Rewards_this_episode',
+                   {'Agent_0': rewards_this_episode[0],
+                    'Agent_1': rewards_this_episode[1]},
+                   episode_i)
+    logger.add_scalars('rewards/Aggregated_Rewards_Over_Time',
+                   {
+                    'Rolling mean reward': rolling_mean_reward,
+                    'Reward this episode (max agent)': agg_reward_this_episode,
+                    },
+                   episode_i)
+    logger.add_scalars('actions/Actions_Agent_0',
+                   {'Action_0': actions[0][0],
+                    'Action_1': actions[0][1]},
+                   episode_i)
+    logger.add_scalars('actions/Actions_Agent_1',
+                   {'Action_0': actions[1][0],
+                    'Action_1': actions[1][1]},
+                   episode_i)
+    logger.add_scalars('noise/noise', {"noise": noise}, episode_i)
+
+    for name, param in maddpg.agents[0].critic.named_parameters():
+        logger.add_histogram("critic_weights/{}".format(name), param.clone().cpu().data.numpy(), episode_i)
+    for name, param in maddpg.agents[0].actor.named_parameters():
+        logger.add_histogram("actor_weights/{}".format(name), param.clone().cpu().data.numpy(), episode_i)
 
 

@@ -269,3 +269,6 @@ ax.minorticks_on()
 ax.grid(b=True, which='minor', color='#999999', linestyle='-', alpha=0.7, linewidth=0.5)
 fig.savefig("learning_curves.jpg")
 fig.close()
+
+
+env.close()

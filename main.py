@@ -111,3 +111,10 @@ maddpg = MADDPG(
             )
 
 
+# ADD GRAPH TO TENSORBOARD
+#actor_input_dummy = torch.autograd.Variable(torch.rand(1, agent_state_size))
+#logger.add_graph(maddpg.agents[0].actor, (actor_input_dummy, ), verbose=True)
+critic_input_dummy = torch.autograd.Variable(torch.rand(1, global_state_size + (N_ACTIONS*N_AGENTS)))
+logger.add_graph(maddpg.agents[0].critic, (critic_input_dummy, ), verbose=False)
+
+

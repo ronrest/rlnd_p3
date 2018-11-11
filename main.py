@@ -49,3 +49,15 @@ def process_agent_states(states):
     return states
 
 
+def process_gobal_state(states):
+    """ Given an array of shape [n_agents, state_size], it
+        Only keeps a subset of the state information for each agent
+        that is not duplicate, or redundant.
+        returns an array of shape [18]
+    """
+    # states = scale_agent_state(states)
+    a = states[0,:]
+    b = states[1,:]
+    c = np.concatenate([a,b])
+    return c
+

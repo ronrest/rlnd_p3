@@ -20,3 +20,29 @@ The *action-space* for each agent are two continuous variables:
 A reward of +0.1 is given to an agent if it hits the ball over the net, and within bounds of the court. It receives a reward of -0.01 if it lets the ball hit the ground or hits the ball out of bounds.
 
 For each episode, the rewards for each agent are added up (without discounting), and the maximum of the two is given as the score of the episode. The task is considered solved if the rolling average score over the past 100 timesteps is at least +0.5.
+
+
+
+## Setup Libraries
+
+You will need to have `Python >= 3.5` and `pip` installed, plus some aditional libraries such as:
+
+- matplotlib
+- numpy>=1.11.0
+- torch==0.4.0
+- unityagents
+
+Before continuing, it is recomended that you create a new [python virtualenv](https://virtualenv.pypa.io/en/latest/) before continuing. You can install the dependencies by cloning this repository and running the following  command lines on Linux (once you are in the desired virtualenv):
+
+```sh
+# Clone repo and move into installation directory
+git clone https://github.com/ronrest/rlnd_p3
+cd rlnd_p3/python
+
+# install dependencies
+pip install .
+
+# Go back to root directory of repo
+cd ../
+```
+

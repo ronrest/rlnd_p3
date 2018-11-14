@@ -8,10 +8,10 @@ The environment used for this project is a variant of the  [Tennis Environment](
 
 The environment consists of two agents controlling tennis rackets. The aim for each agent is to hit the ball over the net, on to the other agents side of the court, and colaborate with each other to prevent the ball from hitting the floor or going out of bounds for as long as possible.
 
-The available *state-space* for each agent consists of a vector with 24 variables. This consists of 8 values encoding racket and ball information for the current step, and previous 2 timesteps.
+The available *state-space* for each agent consists of a vector with 24 variables. This consists of 8 values encoding racket and ball information for the current step, and previous 2 timesteps. Notice that there is actually some duplicate racket information values. Having information over multiple timesteps allows the agent to have information about the movement of objects in the environment.
 
+![image state](states.jpg)
 
-TODO: Add image of state space and its components
 The *action-space* for each agent are two continuous variables:
 
 1. Amount of movement in x axis (towards/away from net)

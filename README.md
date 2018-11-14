@@ -46,3 +46,28 @@ pip install .
 cd ../
 ```
 
+
+## Setup environment
+
+You will need to download the environment binary files for your operating system.
+
+- Linux: [click here](https://s3-us-west-1.amazonaws.com/udacity-drlnd/P3/Tennis/Tennis_Linux.zip)
+- Linux Headless: [click here](https://s3-us-west-1.amazonaws.com/udacity-drlnd/P3/Tennis/Tennis_Linux_NoVis.zip)
+    - For training on the cloud (eg Amazon AWS), or training locally without a GUI.
+- Mac OSX: [click here](https://s3-us-west-1.amazonaws.com/udacity-drlnd/P3/Tennis/Tennis.app.zip)
+- Windows (32-bit): [click here](https://s3-us-west-1.amazonaws.com/udacity-drlnd/P3/Tennis/Tennis_Windows_x86.zip)
+- Windows (64-bit): [click here](https://s3-us-west-1.amazonaws.com/udacity-drlnd/P3/Tennis/Tennis_Windows_x86_64.zip)
+
+
+If you want to train on the cloud, you can either use the Linux Headless version, or you can [enabled a virtual screen](https://github.com/Unity-Technologies/ml-agents/blob/master/docs/Training-on-Amazon-Web-Service.md)).
+
+Make sure that you unzip the downloaded file and take note of where it is stored. The following command lines can be used in Linux for downloading the headless (No GUI) version environment and unzipping it.
+
+```sh
+# Get the headless Tennis environment.
+wget -c https://s3-us-west-1.amazonaws.com/udacity-drlnd/P3/Tennis/Tennis_Linux_NoVis.zip
+unzip Tennis_Linux_NoVis.zip
+rm Tennis_Linux_NoVis.zip
+```
+
+

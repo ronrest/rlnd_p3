@@ -27,6 +27,16 @@ def linear_scale_array(x, newmins, newmaxes, oldmins, oldmaxes):
     return newmins + ratios*(x-oldmins)
 
 
+def scale_agent_state(state):
+    """ Rescales the states so that they are all within the same -1 to 1 range
+    """
+    oldmins  = np.tile(np.array([-12, -2, -30, -10, -11, -2, -30, -10], dtype=np.float32), 3)
+    oldmaxes = np.tile(np.array([0,    1,  30,  10,  11,  6,  30,  10], dtype=np.float32), 3)
+    newmins = -1*np.ones_like(oldmins)
+    newmaxes = np.ones_like(oldmaxes)
+    newstate = linear_scale_array(state, newmins=newmins, newmaxes=newmaxes, oldmins=oldmins, oldmaxes=oldmaxes)
+    return newstate
+
 def tensorfy(x):
     """ Converts an array-like object to a pytorch float tensor """
     return torch.Tensor(x).float()

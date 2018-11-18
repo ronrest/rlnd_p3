@@ -1,6 +1,32 @@
 import numpy as np
 import torch
 
+def linear_scale_array(x, newmins, newmaxes, oldmins, oldmaxes):
+    """ Given an array it linearly scales each of the elements
+        independently based on their corresponding old, and new min and max
+        values.
+    Example:
+        >>> linear_scale_array([24, 145],
+        >>>                     newmins=[0,-1],
+        >>>                     newmaxes=[1, 1],
+        >>>                     oldmins=[0,0],
+        >>>                     oldmaxes=[100,200])
+        array([ 0.24,  0.45])
+    """
+    # ensure values are numpy arrays
+    newmins = np.array(newmins)
+    newmaxes = np.array(newmaxes)
+    oldmins = np.array(oldmins)
+    oldmaxes = np.array(oldmaxes)
+    x = np.array(x)
+
+    # TODO: handle oldmaxes and oldmins being Nones
+    #       find out min and max from x
+    # TODO: handle scalar inputs to mins and maxes, and even x
+    ratios = (newmaxes-newmins)/(oldmaxes-oldmins)
+    return newmins + ratios*(x-oldmins)
+
+
 def tensorfy(x):
     """ Converts an array-like object to a pytorch float tensor """
     return torch.Tensor(x).float()

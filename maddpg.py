@@ -1,3 +1,11 @@
+"""
+Implements the MADDPG algoritm, and supporting functions for this algorithm.
+
+Credits:
+--------
+The MADDPG class is a modified version of code originally sourced from a
+Udacity Lab for the Deep Reinforcement Learning Nanodegree
+"""
 import torch
 from ddpg import DDPGAgent
 from support import soft_update

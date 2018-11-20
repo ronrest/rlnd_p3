@@ -12,6 +12,37 @@ from support import soft_update
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+
+# ##############################################################################
+#                                  SUPPORT
+# ##############################################################################
+def tensorfy_experience_samples(samples):
+    """ Convert experience samples from:
+            (n_samples, n_experience_items, Array[n_agents, vector_size])
+        to
+            (n_experience_items, Tensor[n_agents, n_samples, vector_size])
+
+        the experience items should be the following:
+        - agents_states
+        - global_state
+        - actions
+        - rewards
+        - next_agents_states
+        - next_global_state
+            - dones
+    """
+    agents_states, global_state, actions, rewards, next_agents_states, next_global_state, dones = zip(*samples)
+
+    agents_states = torch.tensor(agents_states, dtype=torch.float).transpose(0,1)
+    global_state = torch.tensor(global_state, dtype=torch.float)
+    actions = torch.tensor(actions, dtype=torch.float).transpose(0,1)
+    rewards = torch.tensor(rewards, dtype=torch.float).transpose(0,1).unsqueeze(2)
+    next_agents_states = torch.tensor(next_agents_states, dtype=torch.float).transpose(0,1)
+    next_global_state = torch.tensor(next_global_state, dtype=torch.float)
+    dones = torch.tensor(dones, dtype=torch.float).transpose(0,1).unsqueeze(2)
+    return agents_states, global_state, actions, rewards, next_agents_states, next_global_state, dones
+
+
 class MADDPG(object):
     def __init__(self, actor_layer_sizes=[24, 128,128,2], critic_layer_sizes=[52, 128,128,1], discount_factor=0.95, tau=0.02, logger=None, lr_actor=1.0e-2,  lr_critic=1.0e-2):
         super(MADDPG, self).__init__()

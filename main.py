@@ -10,7 +10,7 @@ from maddpg import MADDPG
 import matplotlib.pyplot as plt
 # %matplotlib inline
 
-from support import linear_scale_array, scale_agent_state, tensorfy, tensorfy_experience_samples, random_swap_agent_experiences
+from support import linear_scale_array, scale_agent_state, tensorfy
 
 
 # Set random seeds
@@ -193,8 +193,6 @@ for episode_i in range(1, n_episodes+1):
         for _ in range(5):
             for agent_i in range(N_AGENTS):
                 samples = buffer.sample(BATCH_SIZE)
-                samples = tensorfy_experience_samples(samples)
-                samples = random_swap_agent_experiences(samples)
                 maddpg.update(samples, agent_i)
         maddpg.update_targets() #soft update the target network towards the actual networks
 

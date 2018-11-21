@@ -78,7 +78,7 @@ class MADDPG(object):
         target_actors = [agent.target_actor for agent in self.agents]
         return target_actors
 
-    def act(self, agents_states, noise=0.0):
+    def act(self, agents_states, noise=0.0, stacked=False):
         """ Given an array-like object of Tensors, where each tensor represents
             the state of each agent, it passes each of those states to the
             corresponding agent's LOCAL actor network, to get the actions for
@@ -88,9 +88,11 @@ class MADDPG(object):
                             [n_agents, state_size]
             noise:          Random noise scaling factor
         Return:
-            actions:        Tensor of shape [n_agents, n_actions]
+            actions:        Numpy array of shape [n_agents, n_actions]
         """
-        actions = [agent.act(state, noise) for agent, state in zip(self.agents, agents_states)]
+        actions = [agent.act(state, noise=noise) for agent, state in zip(self.agents, agents_states)]
+        if stacked:
+            actions = np.vstack(actions[i].detach().numpy() for i in range(self.n_agents))
         return actions
 
     def target_act(self, agents_states, noise=0.0):
@@ -103,10 +105,11 @@ class MADDPG(object):
                             [n_agents, state_size]
             noise:          Random noise scaling factor
         Return:
-            target_actions:        Tensor of shape [n_agents, n_actions]
+            actions:        Numpy array of shape [n_agents, n_actions]
         """
-        target_actions = [agent.target_act(state, noise) for agent, state in zip(self.agents, agents_states)]
-        return target_actions
+        actions = [agent.target_act(state, noise) for agent, state in zip(self.agents, agents_states)]
+        # actions = np.vstack(actions[i].detach().numpy() for i in range(self.n_agents))
+        return actions
 
     def update(self, samples, agent_number):
         """
@@ -124,7 +127,7 @@ class MADDPG(object):
             agent_number: is this an integer? for the agent idx?
 
         """
-        agents_states, global_state, actions, rewards, next_agents_states, next_global_state, dones = samples
+        agents_states, global_state, actions, rewards, next_agents_states, next_global_state, dones = tensorfy_experience_samples(samples)
         agent = self.agents[agent_number]
 
         # ----------------------------------------------------------------------

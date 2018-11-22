@@ -112,78 +112,85 @@ class MADDPG(object):
         return actions
 
     def update(self, samples, agent_number):
+        """ Given samples from the experience replay buffer in the shape
+                (n_samples, n_experience_items, Array[n_agents, vector_size])
+            then it updates the actor and critic networks for each agent.
         """
-        update the critics and actors of all the agents
+        # PREPROCESS THE EXPERIENCE SAMPLES
+        # Convert the arrays in the experience tuple from:
+        #     [n_samples, n_agents, vector_size]
+        # to:
+        #     [n_agents, n_samples, vector_size]
+        states, global_state, actions, rewards, next_states, next_global_state, dones = tensorfy_experience_samples(samples)
 
-        Args:
-            samples: Tuple of tensors with the following:
-                - agents_states: TODO: XXX shape of tensors[]
-                - global_state:
-                - actions:
-                - rewards:
-                - next_agents_states:
-                - next_global_state:
-                - dones:
-            agent_number: is this an integer? for the agent idx?
-
-        """
-        agents_states, global_state, actions, rewards, next_agents_states, next_global_state, dones = tensorfy_experience_samples(samples)
+        # ----------------------------------------------------------------------
+        #                         UPDATE CRITIC NETWORKS
+        # ----------------------------------------------------------------------
         agent = self.agents[agent_number]
-
-        # ----------------------------------------------------------------------
-        #                               UPDATE CRITIC
-        # ----------------------------------------------------------------------
         agent.critic_optimizer.zero_grad()
-        #critic loss = batch mean of (y- Q(s,a) from target network)^2
-        #y = reward of this timestep + discount * Q(st+1,at+1) from target network
-        target_actions = self.target_act(next_agents_states)
-        target_critic_input = torch.cat((next_global_state, *target_actions), dim=-1).to(device)
 
-        #  Observation of the target network
-        with torch.no_grad():
-            q_next = agent.target_critic(target_critic_input)
-
-        y = rewards[agent_number] + self.discount_factor * q_next * (1 - dones[agent_number])
-
-        # Estimate of future value of local network
-        critic_input = torch.cat((global_state, actions[0], actions[1]), dim=-1).to(device)
+        # ESTIMATE OF FUTURE REWARDS
+        # - Using global state instead of individual agent state to make
+        #   training more stable
+        # - q =  Q(global_state)
+        critic_input = torch.cat((global_state, *actions), dim=1).to(device)
         q = agent.critic(critic_input)
 
-        # Critic Loss
-        critic_loss = self.critic_loss_func(q, y.detach())
+        # PROXY FOR ACTUAL FUTURE RETURNS
+        # - Calculated as actual observation of current rewards + discounted
+        #   returns of estimate of future returns from next state using the
+        #   more stable target network
+        # - y = current reward + discount * Q'(st+1,at+1)
+        target_actions = self.target_act(next_states)
+        target_critic_input = torch.cat((next_global_state, *target_actions), dim=1).to(device)
+        with torch.no_grad():
+            q_next = agent.target_critic(target_critic_input)
+        y = rewards[agent_number].view(-1, 1) + self.discount_factor * q_next * (1 - dones[agent_number].view(-1, 1))
+
+        # CRITIC LOSS
+        # - Using difference between estimated q, and y
+        #critic_loss_func = torch.nn.MSELoss()
+        critic_loss_func = torch.nn.SmoothL1Loss()
+        critic_loss = critic_loss_func(q, y.detach())
+
+        # GRADIENTS AND UPDATE - potentially also clip gradients
         critic_loss.backward()
-        # torch.nn.utils.clip_grad_norm_(agent.critic.parameters(), 0.5)
+        if self.gradient_clipping is not None:
+            torch.nn.utils.clip_grad_norm_(agent.critic.parameters(), self.gradient_clipping)
         agent.critic_optimizer.step()
 
         # ----------------------------------------------------------------------
-        #                          UPDATE ACTOR NETWORK
+        #                          UPDATE ACTOR NETWORKS
         # ----------------------------------------------------------------------
-        #update actor network using policy gradient
         agent.actor_optimizer.zero_grad()
-        # make input to agent
-        # detach the other agents to save computation
-        # saves some time for computing derivative
-        # [n_agents, state_size]
-        q_input = [self.agents[i].actor(state) if i == agent_number \
-                   else self.agents[i].actor(state).detach()
-                   for i, state in enumerate(agents_states) ]
-        q_input = torch.cat((global_state, *q_input), dim=-1)
-        # TODO: what shapes are these taking?
 
-        # get the policy gradient
+        # INPUT FOR AGENT ACTOR NETWORK
+        # - Combines all states of all agents, and all actions from local
+        #   network
+        # - detach the other agents to  save time in computing derivative
+        actor_actions = [self.agents[i].actor(state) if i == agent_number \
+                        else self.agents[i].actor(state).detach() \
+                        for i, state in enumerate(states) ]
+        q_input = torch.cat((global_state, *actor_actions), dim=1)
+
+        # ACTOR LOSS
         actor_loss = -agent.critic(q_input).mean()
+
+        # GRADIENTS AND UPDATE - potentially also clip gradients
         actor_loss.backward()
-        #torch.nn.utils.clip_grad_norm_(agent.actor.parameters(),0.5)
+        if self.gradient_clipping is not None:
+            torch.nn.utils.clip_grad_norm_(agent.actor.parameters(),self.gradient_clipping)
         agent.actor_optimizer.step()
 
-        # TRACK LOSSES IN TENSORBOARD
+        # MONITOR LOSS IN TENSORBOARD
         if self.logger is not None:
-            al = actor_loss.cpu().detach().item()
-            cl = critic_loss.cpu().detach().item()
-            self.logger.add_scalars('loss/agent{}/losses'.format(agent_number),
-                           {'critic_loss': cl,
-                            'actor_loss': al},
+            self.logger.add_scalars('losses/agent{}'.format(agent_number),
+                            {
+                            'critic loss': critic_loss.cpu().detach().item(),
+                            'actor_loss': actor_loss.cpu().detach().item(),
+                            },
                            self.iter)
+
 
     def update_targets(self):
         """soft update targets"""

@@ -193,7 +193,9 @@ class MADDPG(object):
 
 
     def update_targets(self):
-        """soft update targets"""
+        """ Perform soft update on target networks (moves target network
+            weights a little closer to the local network weights)
+        """
         self.iter += 1
         for agent in self.agents:
             soft_update(agent.target_actor, agent.actor, self.tau)

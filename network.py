@@ -27,7 +27,7 @@ class Network(nn.Module):
     def reset_parameters(self):
         self.fc1.weight.data.uniform_(*hidden_init(self.fc1))
         self.fc2.weight.data.uniform_(*hidden_init(self.fc2))
-        self.fc3.weight.data.uniform_(-1e-3, 1e-3)
+        self.fc3.weight.data.uniform_(-3e-3, 3e-3)
 
     def forward(self, x):
         h1 = self.nonlin(self.fc1(x))

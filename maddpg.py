@@ -72,12 +72,12 @@ class MADDPG:
         return len(self.agents)
 
     def get_actors(self):
-        """Return the actors of all the agents in the MADDPG object"""
+        """Get list of actor networks for all the agents in the MADDPG object"""
         actors = [agent.actor for agent in self.agents]
         return actors
 
     def get_target_actors(self):
-        """Return the target_actors of all the agents in the MADDPG object"""
+        """Get list of target networks for all the agents in the MADDPG object"""
         target_actors = [agent.target_actor for agent in self.agents]
         return target_actors
 
@@ -204,6 +204,7 @@ class MADDPG:
             soft_update(ddpg_agent.target_critic, ddpg_agent.critic, self.tau)
 
     def save_model(self, filename):
+        """ Take a snapshot of the model's weights and save to file """
         save_dict_list =[]
         for i in range(self.n_agents):
             save_dict = {
@@ -216,6 +217,7 @@ class MADDPG:
         torch.save(save_dict_list, filename)
 
     def load_model(self, filename):
+        """ Load weights of the model from a file """
         params = torch.load(filename)
         for i in range(self.n_agents):
             self.agents[i].actor.load_state_dict(params[i]['actor_params'])

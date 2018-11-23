@@ -3,28 +3,9 @@ import torch
 from network import Network
 from support import hard_update
 from torch.optim import Adam
+from OUNoise import OUNoise
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-class OUNoise:
-    def __init__(self, action_dimension, scale=0.1, mu=0, theta=0.15, sigma=0.2):
-        self.action_dimension = action_dimension
-        self.scale = scale
-        self.mu = mu
-        self.theta = theta
-        self.sigma = sigma
-        self.state = np.ones(self.action_dimension) * self.mu
-        self.reset()
-
-    def reset(self):
-        self.state = np.ones(self.action_dimension) * self.mu
-
-    def noise(self):
-        x = self.state
-        dx = self.theta * (self.mu - x) + self.sigma * np.random.randn(len(x))
-        self.state = x + dx
-        return torch.tensor(self.state * self.scale).float()
-
 
 class DDPGAgent:
     def __init__(self, actor_layer_sizes=[24, 128,128,2], critic_layer_sizes=[24, 128,128,1], lr_actor=1.0e-2, lr_critic=1.0e-2, clamp_actions=True, logger=None):

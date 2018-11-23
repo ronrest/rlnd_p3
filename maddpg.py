@@ -6,9 +6,12 @@ Credits:
 The MADDPG class is a modified version of code originally sourced from a
 Udacity Lab for the Deep Reinforcement Learning Nanodegree
 """
+import numpy as np
 import torch
+
 from ddpg import DDPGAgent
 from support import soft_update
+from support import tensorfy
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -43,30 +46,30 @@ def tensorfy_experience_samples(samples):
     return agents_states, global_state, actions, rewards, next_agents_states, next_global_state, dones
 
 
-class MADDPG(object):
-    def __init__(self, actor_layer_sizes=[24, 128,128,2], critic_layer_sizes=[52, 128,128,1], discount_factor=0.95, tau=0.02, logger=None, lr_actor=1.0e-2,  lr_critic=1.0e-2):
+# ##############################################################################
+#                                   MADDPG
+# ##############################################################################
+class MADDPG:
+    """ Implements the MADDPG Reinforcement Learning algorithm """
+    def __init__(self, actor_layer_sizes=[24, 128,128,2], critic_layer_sizes=[52, 128,128,1], discount_factor=0.95, tau=0.02, logger=None, lr_actor=1e-3,  lr_critic=1e-3, gradient_clipping=None, clamp_actions=True, log_layers=False, log_weights=False, log_losses=True):
         super(MADDPG, self).__init__()
-        self.agents = [DDPGAgent(actor_layer_sizes=actor_layer_sizes,
-                                critic_layer_sizes=critic_layer_sizes,
-                                lr_actor=lr_actor,
-                                lr_critic=lr_critic,
-                                logger=logger,
-                                ),
-                            DDPGAgent(
-                                actor_layer_sizes=actor_layer_sizes,
-                                critic_layer_sizes=critic_layer_sizes,
-                                lr_actor=lr_actor,
-                                lr_critic=lr_critic,
-                                logger=logger,
-                                ),
-                            ]
-        self.n_agents = len(self.agents)
-        self.discount_factor = discount_factor
-        self.tau = tau
-        self.iter = 0
-        self.logger = logger
-        self.critic_loss_func = torch.nn.SmoothL1Loss()
 
+        # INITIALIZE EACH AGENT AS A DDPG MODEL
+        self.agents = [
+            DDPGAgent(actor_layer_sizes=actor_layer_sizes, critic_layer_sizes=critic_layer_sizes, lr_actor=lr_actor, lr_critic=lr_critic, clamp_actions=clamp_actions, logger=logger, log_layers=log_layers),
+            DDPGAgent(actor_layer_sizes=actor_layer_sizes, critic_layer_sizes=critic_layer_sizes, lr_actor=lr_actor, lr_critic=lr_critic, clamp_actions=clamp_actions, logger=logger, log_layers=log_layers),
+            ]
+
+        self.discount_factor = discount_factor # For discounted returns
+        self.tau = tau          # Soft Update factor
+        self.iter = 0           # Keep track of how many iterations have passed
+        self.gradient_clipping = gradient_clipping # upper limit to gradients
+        self.logger = logger         # Tensorboard logger object
+        self.log_weights=log_weights # Monitor weights in Tensorboard?
+
+    @property
+    def n_agents(self):
+        return len(self.agents)
 
     def get_actors(self):
         """Return the actors of all the agents in the MADDPG object"""
@@ -191,19 +194,14 @@ class MADDPG(object):
                             },
                            self.iter)
 
-
     def update_targets(self):
         """ Perform soft update on target networks (moves target network
             weights a little closer to the local network weights)
         """
         self.iter += 1
-        for agent in self.agents:
-            soft_update(agent.target_actor, agent.actor, self.tau)
-            soft_update(agent.target_critic, agent.critic, self.tau)
-
-    def reset_noise(self):
-        for agent in self.agents:
-            agent.noise.reset()
+        for ddpg_agent in self.agents:
+            soft_update(ddpg_agent.target_actor, ddpg_agent.actor, self.tau)
+            soft_update(ddpg_agent.target_critic, ddpg_agent.critic, self.tau)
 
     def save_model(self, filename):
         save_dict_list =[]
@@ -224,3 +222,8 @@ class MADDPG(object):
             self.agents[i].actor_optimizer.load_state_dict(params[i]['actor_optim_params'])
             self.agents[i].critic.load_state_dict(params[i]['critic_params'])
             self.agents[i].critic_optimizer.load_state_dict(params[i]['critic_optim_params'])
+
+    def reset_ounoise(self):
+        """ Reset the OU Noise for each agent"""
+        for agent in  self.agents:
+            agent.noise.reset()

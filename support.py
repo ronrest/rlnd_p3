@@ -10,6 +10,14 @@ def maybe_make_dir(path):
     if not os.path.exists(path):
         os.makedirs(path)
 
+def pretty_time(t):
+    """ Given a time in seconds, returns a string formatted as "HH:MM:SS" """
+    t = int(t)
+    H, r = divmod(t, 3600)
+    M, S = divmod(r, 60)
+    return "{:02n}:{:02n}:{:02n}".format(H,M,S)
+
+
 def linear_scale_array(x, newmins, newmaxes, oldmins, oldmaxes):
     """ Given an array it linearly scales each of the elements
         independently based on their corresponding old, and new min and max

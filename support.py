@@ -1,5 +1,14 @@
+import os
 import numpy as np
 import torch
+
+def maybe_make_dir(path):
+    """ Checks if a directory path exists on the system, if it does not, then
+        it creates that directory (and any parent directories needed to
+        create that directory)
+    """
+    if not os.path.exists(path):
+        os.makedirs(path)
 
 def linear_scale_array(x, newmins, newmaxes, oldmins, oldmaxes):
     """ Given an array it linearly scales each of the elements

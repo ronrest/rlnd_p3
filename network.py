@@ -1,3 +1,6 @@
+"""
+Contains the neural network to be used by a DDPG agent
+"""
 import torch
 import torch.nn as nn
 import torch.nn.functional as f
@@ -9,7 +12,7 @@ def hidden_init(layer):
     return (-lim, lim)
 
 class Network(nn.Module):
-    def __init__(self, layer_sizes=[24, 128, 128, 2], actor=False, logger=None):
+    def __init__(self, layer_sizes=[24, 128, 128, 2], actor=False, logger=None, log_layers=False):
         super(Network, self).__init__()
         self.fc1 = nn.Linear(layer_sizes[0],layer_sizes[1])
         self.fc2 = nn.Linear(layer_sizes[1],layer_sizes[2])
@@ -18,6 +21,7 @@ class Network(nn.Module):
         self.reset_parameters()
         self.actor = actor
         self.logger = logger
+        self.log_layers = log_layers
         self.step = 0
 
     def reset_parameters(self):
@@ -30,15 +34,15 @@ class Network(nn.Module):
         h2 = self.nonlin(self.fc2(h1))
 
         # LOGITS
-        # Actor return a vector of the force
-        # Critic network simply outputs a q-value number
+        # Actor network should return a vector of the actions
+        # Critic network should return a q-value number
         if self.actor:
             logits = torch.tanh(self.fc3(h2))
         else:
             logits = self.fc3(h2)
 
         # MONITOR LAYER VALUES IN TENSORBOARD
-        if self.logger is not None:
+        if (self.logger is not None) and (self.log_layers):
             network_name = "actor" if self.actor else "critic"
             self.step += 1
             for key, vals in dict(x=x, h1=h1, h2=h2, logits=logits).items():

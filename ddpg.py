@@ -37,7 +37,6 @@ class DDPGAgent:
             If `noise` is provided, it adds some random noise to the actions
             to make the agent explore.
         """
-        obs = torch.tensor(obs, dtype=torch.float)
         obs = obs.to(device)
         action = self.actor(obs) + noise*self.noise.noise()
         if self.clamp_actions:
@@ -51,7 +50,6 @@ class DDPGAgent:
             If `noise` is provided, it adds some random noise to the actions
             to make the agent explore.
         """
-        obs = torch.tensor(obs, dtype=torch.float)
         obs = obs.to(device)
         action = self.target_actor(obs) + noise*self.noise.noise()
         if self.clamp_actions:

@@ -2,18 +2,19 @@ from collections import deque
 import random
 
 class ReplayBuffer:
-    def __init__(self,size):
+    def __init__(self,size, seed=333):
+        random.seed(seed)
         self.size = size
-        self.deque = deque(maxlen=self.size)
+        self.memory = deque(maxlen=self.size)
 
-    def push(self,experience):
+    def push(self,transition):
         """push into the buffer"""
-        self.deque.append(experience)
+        self.memory.append(transition)
 
     def sample(self, batchsize):
         """sample from the buffer"""
-        samples = random.sample(self.deque, batchsize)
+        samples = random.sample(self.memory, batchsize)
         return samples
 
     def __len__(self):
-        return len(self.deque)
+        return len(self.memory)

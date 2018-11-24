@@ -1,48 +1,64 @@
+#!/usr/bin/env python
+# coding: utf-8
 import os
+from collections import deque
+
 import numpy as np
 import torch
 from tensorboardX import SummaryWriter
 from unityagents import UnityEnvironment
 
-from buffer import ReplayBuffer
 from maddpg import MADDPG
+from buffer import ReplayBuffer
+from support import tensorfy
 
 import matplotlib.pyplot as plt
-# %matplotlib inline
-
-from support import linear_scale_array, scale_agent_state, tensorfy
-
-
-# Set random seeds
-def seeding(seed=1):
-    np.random.seed(seed)
-    torch.manual_seed(seed)
 
 
 # ##############################################################################
 #                                                  SETTINGS
 # ##############################################################################
-log_path = os.getcwd()+"/log_a"
-model_dir= os.getcwd()+"/model_a"
+MODEL_NAME = "model_aa"
+# ENV_FILE = "Tennis_Linux/Tennis.x86_64"
+ENV_FILE = "Tennis_Linux_NoVis/Tennis.x86_64"
 
-N_AGENTS = 2           # Number of agents in environment
-N_ACTIONS = 2          # Number of actions the agent can take
+#ACTOR_LAYER_SIZES =  [24, 256,128,2]
+#CRITIC_LAYER_SIZES = [52, 256,128,1]
+ACTOR_LAYER_SIZES =  [12, 256,128,2]
+CRITIC_LAYER_SIZES = [22, 256,128,1]
 
-BUFFER_SIZE = 100000    # Max size of experience replay buffer
-BATCH_SIZE = 256        # How many samples to take from buffer with each update
-MAX_STEPS = 1000        # max number of steps for an episode
-SOLVED_SCORE = 0.5      # Score needed to be considered solved
-SOLVED_WINDOW = 100     # Rolling average window size used to evaluate solved score
-EPISODES_PER_UPDATE = 1 # How often to update the network
+SEED = 777
+TAU = 0.02
+CLAMP_ACTIONS=True
+GRADIENT_CLIPPING = None  # Amount to clip gradients by
 
 # Amplitude of OU Noise - used for random exploration
 # - decayed over time
-noise = 1
-noise_decay = 1
-seed = 1
+noise = 2.0
+HARD_NOISE_STEPS = 500
+NOISE_DECAY = 0.995
+DO_RANDOM_SWAP = False
 
-logger = SummaryWriter(log_dir=log_path)
-seeding(seed)
+DISCOUNT_FACTOR = 0.95    # For discounted rewards
+LR_ACTOR = 1e-3         # Learning rate for actor networks
+LR_CRITIC = 1e-3        # Learning rate for critic networks
+
+EPISODES_PER_UPDATE = 1   # How often to update the network
+N_BATCHES_PER_UPDATE = 4  # How many batches of samples to take when updating
+UPDATE_TARGET_AFTER_EACH_BATCH = False # Update after every batch? or after end of update cluster
+
+BATCH_SIZE = 1024         # How many samples to take from buffer with each update
+BUFFER_SIZE = 100000     # Max size of experience replay buffer
+MIN_BUFFER_SIZE = 1 * HARD_NOISE_STEPS # how many experiences should be in buffer before starting to train
+MIN_BUFFER_SIZE = BATCH_SIZE * N_BATCHES_PER_UPDATE # how many experiences should be in buffer before starting to train
+
+
+N_AGENTS = 2              # Number of agents in environment
+N_ACTIONS = 2             # Number of actions the agent can take
+MAX_STEPS = 1000        # max number of steps for an episode
+SOLVED_SCORE = 0.5      # Score needed to be considered solved
+SOLVED_WINDOW = 100     # Rolling average window size used to evaluate solved score
+
 
 # ##############################################################################
 #                                                  SUPPORT
@@ -50,9 +66,10 @@ seeding(seed)
 def process_agent_states(states):
     """ Given an array of shape [n_agents, state_size], it
         Only keeps a subset of the state information for each agent """
-    states = scale_agent_state(states)
-    return states
-
+    # states = scale_agent_state(states)
+    return states[:,[3,4,5,11,12,13,16,17,18,19,20,21]]
+    #return states
+    # return states[:,:]
 
 def process_gobal_state(states):
     """ Given an array of shape [n_agents, state_size], it
@@ -60,22 +77,41 @@ def process_gobal_state(states):
         that is not duplicate, or redundant.
         returns an array of shape [18]
     """
-    states = scale_agent_state(states)
-    a = states[0,:]
-    b = states[1,:]
+    # states = scale_agent_state(states)
+    #a = states[0,:]
+    #b = states[1,:]
+    a = states[0,[3,11,16,17,18,19]]
+    b = states[1,[3,4,5,11,12,13,16,17,18,19,20,21]]
     c = np.concatenate([a,b])
     return c
 
 # ##############################################################################
+#                                                  SETUP
+# ##############################################################################
+# Generate Output Directory Paths
+model_dir = os.path.join("models", MODEL_NAME)
+tensorboard_dir = os.path.join(model_dir, "tensorboard")
+snapshots_dir = os.path.join(model_dir, "snapshots")
+os.makedirs(model_dir, exist_ok=True)
+os.makedirs(tensorboard_dir, exist_ok=True)
+os.makedirs(snapshots_dir, exist_ok=True)
+
+# SET SEEDS FOR REPRODUCIBILITY
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+
+# TENSORBOARD
+logger = SummaryWriter(log_dir=tensorboard_dir)
+
+
+# ##############################################################################
 #                                                  ENVIRONMENT
 # ##############################################################################
-env = UnityEnvironment(file_name="../Tennis_Linux/Tennis.x86_64")
-# env = UnityEnvironment(file_name="../Tennis_Linux_NoVis/Tennis.x86_64")
+env = UnityEnvironment(file_name=ENV_FILE, seed=SEED)
 
 # get the default brain
 brain_name = env.brain_names[0]
 brain = env.brains[brain_name]
-
 
 # reset the environment
 env_info = env.reset(train_mode=True)[brain_name]
@@ -90,6 +126,7 @@ states = env_info.vector_observations
 state_size = states.shape[1]
 state_type = brain.vector_observation_space_type
 
+print("{dec}\nENVIRONMENT\n{dec}".format(dec="="*60))
 print('Number of agents               :', num_agents)
 print('Action Shape                   :', action_size)
 print("Action Type                    :", action_type)
@@ -105,159 +142,150 @@ global_state_size = process_gobal_state(states).shape[0]
 # ##############################################################################
 #                                                  AGENT
 # ##############################################################################
-# initialize policy and critic
-maddpg = MADDPG(
-            actor_layer_sizes=[agent_state_size, 128,128,2],
-            critic_layer_sizes=[global_state_size + (N_ACTIONS*N_AGENTS), 128,128,1],
-            lr_actor=1e-3,
-            lr_critic=1e-3,
-            discount_factor=0.95,
-            logger=logger,
-            )
-
-
-# ADD GRAPH TO TENSORBOARD
-#actor_input_dummy = torch.autograd.Variable(torch.rand(1, agent_state_size))
-#logger.add_graph(maddpg.agents[0].actor, (actor_input_dummy, ), verbose=True)
-critic_input_dummy = torch.autograd.Variable(torch.rand(1, global_state_size + (N_ACTIONS*N_AGENTS)))
-logger.add_graph(maddpg.agents[0].critic, (critic_input_dummy, ), verbose=False)
+# Create Multi agent Actor-Critic Model
+maddpg = MADDPG(actor_layer_sizes=ACTOR_LAYER_SIZES,
+                critic_layer_sizes=CRITIC_LAYER_SIZES,
+                discount_factor=DISCOUNT_FACTOR,
+                tau=TAU,
+                lr_actor=LR_ACTOR,
+                lr_critic=LR_CRITIC,
+                gradient_clipping=GRADIENT_CLIPPING,
+                clamp_actions=CLAMP_ACTIONS,
+                logger=logger,
+                log_losses=True,
+                log_layers=False,
+                log_weights=False,
+                )
 
 
 # ##############################################################################
-#                                                  TRAIN LOOP
+#                                                  TRAIN
 # ##############################################################################
-buffer = ReplayBuffer(BUFFER_SIZE)
+buffer = ReplayBuffer(int(BUFFER_SIZE), seed=SEED)
 
-n_episodes = 5000
-solved_printout = False
-best_rolling_mean_reward = -np.inf
-history = []            # history of actual reward at each episode
-history_rolling = []    # history of rolling mean rewards over time
+n_episodes = 10000
+best_rolling_mean_score = -np.inf
+hard_noise_reigime = True
+solved = False
+rewards_deque = deque(maxlen=SOLVED_WINDOW)
+history = []
+history_rolling_mean = []
 
+# episode_i = 0
 for episode_i in range(1, n_episodes+1):
-    rewards_this_episode = np.zeros(N_AGENTS, dtype=np.float)
-
-    # RESET ENVIRONMENT
-    env_info = env.reset(train_mode=True)[brain_name] # reset the environment
-    states = env_info.vector_observations         # get next state (for each agent)
-    agents_states = process_agent_states(states)
-    global_state = process_gobal_state(states)
-    scores = np.zeros(2)
+    # INITIALIZE FOR NEW EPISODE
+    rewards_this_episode = np.zeros((N_AGENTS,))
+    env_info = env.reset(train_mode=True)[brain_name]
+    states = process_agent_states(env_info.vector_observations)
+    global_state = process_gobal_state(env_info.vector_observations)
 
     # COLLECT A FULL EPISODE OF EXPERIENCES
     for step in range(MAX_STEPS):
-        # RESET OUNOISE
-        # maddpg.reset_noise()
-        for i in range(N_AGENTS):
-            maddpg.agents[i].noise.reset()
-        # PERFORM SINGLE STEP
+        maddpg.reset_ounoise()
 
-        # GET ACTIONS TO TAKE FROM AGENT
-        # Given agent states, get the actions for each agent from the actor policy
-        # (and some random noise for exploration)
-        # - then convert list of action tensors to a 2D numpy array
-        #   [n_agents, n_actions]
-        actions = maddpg.act(tensorfy(agents_states), noise=noise)
-        actions = torch.stack(actions).detach().numpy()
+        # GET ACTIONS TO TAK ADN INTERACT WITH THE ENVIRONMENT
+        actions = maddpg.act(tensorfy(states), noise=noise, stacked=True)
+        env_info = env.step(actions)[brain_name]
 
-        # INTERACT WITH THE ENVIRONMENT
-        env_info = env.step(actions)[brain_name]           # send all actions to tne environment
-        next_states = env_info.vector_observations         # get next state (for each agent)
-        rewards = env_info.rewards                         # get reward (for each agent)
-        dones = env_info.local_done                        # see if episode finished
-        scores += env_info.rewards                         # update the score (for each agent)
-        if np.any(dones):                                  # exit loop if episode finished
-           break
-           print('Total score (averaged over agents) this episode: {}'.format(np.mean(scores)))
+        # EXTRACT AND PROCESS THE RETRUNED VALUES FROM ENVIRONMENT
+        next_states = process_agent_states(env_info.vector_observations)
+        next_global_state = process_gobal_state(env_info.vector_observations)
+        rewards = env_info.rewards
+        dones = env_info.local_done
 
-        # PROCESS STATES
-        next_agents_states = process_agent_states(next_states)
-        next_global_state = process_gobal_state(next_states)
-
-        # ADD EXPERIENCE TO REPLAY BUFFER
-        experience = (agents_states, global_state, actions, rewards, next_agents_states, next_global_state, dones)
+        # ADD EXPERIENCE TO THE BUFFER
+        experience = (states, global_state, actions, rewards, next_states, next_global_state, dones)
         buffer.push(experience)
 
         # UPDATE REWARDS
         rewards_this_episode += rewards
 
-        # PREPARE FOR NEXT STEP
-        # - update state and decay the noise
-        #states = next_states           # roll over states to next time step
-        agents_states = next_agents_states
+        # PREPARE FOR NEXT TIMESTEP
+        states = next_states
         global_state = next_global_state
-        noise *= noise_decay
+        noise = noise if hard_noise_reigime else noise*NOISE_DECAY
 
-    # UPDATE NETWORK - once after every EPISODES_PER_UPDATE
-    if (len(buffer) > BATCH_SIZE) and ((episode_i % EPISODES_PER_UPDATE) == 0):
-        for _ in range(5):
+        # END EPISODE IF ANY AGENT IS DONE
+        if any(dones):
+            break
+
+    if episode_i > HARD_NOISE_STEPS:
+        hard_noise_reigime = False
+
+    # POTENTIALLY START TAKING SAMPLES TO TRAIN FROM EXPERIENCE BUFFER
+    if len(buffer) > MIN_BUFFER_SIZE:
+        update_flag = "u"
+        for _ in range(N_BATCHES_PER_UPDATE):
             for agent_i in range(N_AGENTS):
+                # samples = buffer.sample(3)
                 samples = buffer.sample(BATCH_SIZE)
                 maddpg.update(samples, agent_i)
-        maddpg.update_targets() #soft update the target network towards the actual networks
+                if UPDATE_TARGET_AFTER_EACH_BATCH:
+                    maddpg.update_targets()
+            if not UPDATE_TARGET_AFTER_EACH_BATCH:
+                maddpg.update_targets()
+    else:
+        update_flag = " "
 
-    # UPDATE REWARDS
-    agg_reward_this_episode = rewards_this_episode.max()
-    # agg_reward_this_episode = rewards_this_episode.mean()
-    rolling_mean_reward = np.mean(history[-SOLVED_WINDOW:])
+    # UPDATE EPISODE AND ROLLING MEAN SCORES
+    agg_reward_this_episode = np.max(rewards_this_episode)
+    rewards_deque.append(agg_reward_this_episode)
+    rolling_mean_reward = np.mean(rewards_deque)
+
     history.append(agg_reward_this_episode)
-    history_rolling.append(rolling_mean_reward)
+    history_rolling_mean.append(rolling_mean_reward)
 
-    # FEEDBACK
-    acc = str([list(actions[0]), list(actions[1])] )
-    agent_rewards_string = ["{: 3.3f}".format(r) for r in rewards_this_episode]
-    agent_rewards_string = ",".join(agent_rewards_string)
-    feedback = "\r{ep} Rolling Mean Reward: {rm: 3.3f}  Avg Reward This episode: {re: 3.3f}  Individual rewards [{ar}] acc: {acc}".format(ep=episode_i, rm=rolling_mean_reward, re=agg_reward_this_episode, ar=agent_rewards_string, acc=acc)
+    # MONITOR PROGRESS IN TENSORBOARD
+    if logger is not None:
+        logger.add_scalars('rewards/Rewards_this_episode',
+                       {'Agent_0': rewards_this_episode[0],
+                        'Agent_1': rewards_this_episode[1]},
+                       episode_i)
+        logger.add_scalars('rewards/Aggregated_Rewards_Over_Time',
+                       {'Rolling mean reward': rolling_mean_reward,
+                        'Reward this episode (max agent)': agg_reward_this_episode},
+                       episode_i)
+        logger.add_scalars('actions/Actions_Agent_0',
+                       {'Action_0': actions[0][0],
+                        'Action_1': actions[0][1]},
+                       episode_i)
+        logger.add_scalars('actions/Actions_Agent_1',
+                       {'Action_0': actions[1][0],
+                        'Action_1': actions[1][1]},
+                       episode_i)
+        logger.add_scalars('noise/noise', {"noise": noise}, episode_i)
+        logger.add_scalars('steps/episode_steps', {"steps": step}, episode_i)
+
+    # CHECK IF IT IS A NEW BEST MODEL - And take a snapshot of best so far
+    if rolling_mean_reward > best_rolling_mean_score:
+        best_rolling_mean_score = rolling_mean_reward
+        maddpg.save_model(os.path.join(snapshots_dir, 'best_model.snapshot'))
+        feedback_postfix = "*(new best)\n"
+    else:
+        feedback_postfix = " "
+
+    # FEEDBACK PRINTOUT
+    feedback = "\r{ep: 5d} Reward: {rw: 3.3f} Rolling Mean Reward: {rm: 3.3f} {uf} {ps}"
+    feedback = feedback.format(ep=episode_i, rm=rolling_mean_reward, rw=agg_reward_this_episode, uf=update_flag, ps=feedback_postfix)
     print(feedback, end="")
 
-    # LIVE PLOTS
-    logger.add_scalars('rewards/Rewards_this_episode',
-                   {'Agent_0': rewards_this_episode[0],
-                    'Agent_1': rewards_this_episode[1]},
-                   episode_i)
-    logger.add_scalars('rewards/Aggregated_Rewards_Over_Time',
-                   {
-                    'Rolling mean reward': rolling_mean_reward,
-                    'Reward this episode (max agent)': agg_reward_this_episode,
-                    },
-                   episode_i)
-    logger.add_scalars('actions/Actions_Agent_0',
-                   {'Action_0': actions[0][0],
-                    'Action_1': actions[0][1]},
-                   episode_i)
-    logger.add_scalars('actions/Actions_Agent_1',
-                   {'Action_0': actions[1][0],
-                    'Action_1': actions[1][1]},
-                   episode_i)
-    logger.add_scalars('noise/noise', {"noise": noise}, episode_i)
-
-    for name, param in maddpg.agents[0].critic.named_parameters():
-        logger.add_histogram("critic_weights/{}".format(name), param.clone().cpu().data.numpy(), episode_i)
-    for name, param in maddpg.agents[0].actor.named_parameters():
-        logger.add_histogram("actor_weights/{}".format(name), param.clone().cpu().data.numpy(), episode_i)
-
-
-    # SAVE MODEL
-    if rolling_mean_reward > best_rolling_mean_reward:
-        best_rolling_mean_reward = rolling_mean_reward
-        save_model(os.path.join(model_dir, "best_model.params"))
-
-    if (rolling_mean_reward >= SOLVED_SCORE) and (not solved_printout):
-        solved_printout = True
-        print('\nEnvironment solved in {} episodes!'.format(episode_i-SOLVED_WINDOW))
-        print('\nAverage Score: {:.2f}'.format(rolling_mean_reward))
-        print("...but continuing to train")
-
-
+    # CHECK IF SOLVED
+    if (rolling_mean_reward >= SOLVED_SCORE) and not solved:
+        solved = True
+        maddpg.save_model(os.path.join(snapshots_dir, 'solved_model_{:05d}.snapshot'.format(episode_i)))
+        print("\nSolved in {}-100 steps".format(episode_i))
+        print("- with an average score of {}".format(rolling_mean_reward))
+        print("- snapshot of model taken")
+        print("- but continuing to train further ... \n")
 
 
 # ##############################################################################
-# PLOT LEARNING CURVE
+#                            PLOT OF TRAINING CURVES
 # ##############################################################################
 fig, ax = plt.subplots(figsize=(12, 6))
 fig.suptitle("Learning Curve", fontsize=15)
 ax.plot(history, color="#307EC7", label="Episode Reward")
-ax.plot(history, color="#E65C00", label="Rolling Mean of past {} Rewards".format(SOLVED_WINDOW))
+ax.plot(history_rolling_mean, color="#E65C00", label="Rolling Mean of past {} Rewards".format(SOLVED_WINDOW))
 ax.set_xlabel("Timesteps")
 ax.set_ylabel("Reward")
 # GRID
@@ -265,8 +293,14 @@ ax.grid(True)
 ax.grid(b=True, which='major', color='#999999', linestyle='-', linewidth=1)
 ax.minorticks_on()
 ax.grid(b=True, which='minor', color='#999999', linestyle='-', alpha=0.7, linewidth=0.5)
-fig.savefig("learning_curves.jpg")
-fig.close()
+# LEGEND
+ax.legend(loc="upper left", title="", frameon=False,  fontsize=8)
+fig.savefig(os.path.join(model_dir, "learning_curve.jpg"))
 
+
+best_snapshot_step = np.argwhere(np.array(history_rolling_mean) == best_rolling_mean_score)[0]
+template = "Best snapshot taken at a rolling average of {v} at timestep {t}"
+print(template.format(v=best_rolling_mean_score, t=best_snapshot_step+1))
 
 env.close()
+logger.close()

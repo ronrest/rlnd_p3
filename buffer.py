@@ -1,3 +1,9 @@
+"""
+Credits:
+--------
+The ReplayBuffer class is a modified version of code originally sourced from a
+Udacity Lab for the Deep Reinforcement Learning Nanodegree
+"""
 from collections import deque
 import random
 

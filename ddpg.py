@@ -1,3 +1,11 @@
+"""
+Implements the DDPG algoritm
+
+Credits:
+--------
+The DDPGAgent class is a modified version of code originally sourced from a
+Udacity Lab for the Deep Reinforcement Learning Nanodegree
+"""
 import numpy as np
 import torch
 from torch.optim import Adam

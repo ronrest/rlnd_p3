@@ -1,5 +1,15 @@
 #!/usr/bin/env python
 # coding: utf-8
+"""
+Contains code for running an already trained agent on the Unity Tennis
+environment for observation purposes.
+
+Ensure you update the following variables (See the README.md file for more
+information):
+
+- MODEL_NAME
+- ENV_FILE
+"""
 import os
 from collections import deque
 

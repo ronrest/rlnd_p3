@@ -1,4 +1,4 @@
-# Tennis
+# Reinforcement Learning in a Multi Agent Cooperative Environment
 
 The aim of this project is to use Reinforcement Learning to work on an environment that contains multiple agents whose task is to cooperate with each other to achieve a common goal.
 

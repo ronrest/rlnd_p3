@@ -71,3 +71,17 @@ rm Tennis_Linux_NoVis.zip
 ```
 
 
+## Train
+
+All the training was done in the [train.ipynb](train.ipynb) notebook. Make sure you update the following variable values in the `settings` section of the notebook:
+
+- `ENV_FILE`: update this to the file path to the environment file you donwloaded
+- `MODEL_NAME` This will store all the saved snapshots, log files, and training curve plots associated with your model in a separate subdirectory. These things will be stored in `models/{MODEL_NAME}/`
+- Feel free to experiment with the other settings as well to see what results you get.
+
+## Run a Trained Model
+
+To see the trained agent play in the environment, then you can run the `play.py` script. But before doing so, you should modify the following variables in the `settings` section of the file.
+
+- `ENV_FILE`: update this to the file path to the environment file you donwloaded. You should use an environment that is *not* headless if you want to view it visually.
+- `MODEL_NAME` The name of the model you assigned when training. Leave this unchanged if you want to view the agent that was packaged with this repository.
